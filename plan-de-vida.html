@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Plan 1 Mes – Checklist</title>
+  <style>
+    body{font-family:Arial, sans-serif; margin:0; background:#0b0f14; color:#e8eef7;}
+    header{padding:14px 16px; background:#111827; position:sticky; top:0; border-bottom:1px solid #233044;}
+    h1{font-size:16px; margin:0;}
+    .wrap{max-width:860px; margin:0 auto; padding:16px;}
+    .card{background:#0f172a; border:1px solid #22314a; border-radius:14px; padding:14px; margin:12px 0;}
+    label{display:block; font-size:12px; opacity:.9; margin-bottom:6px;}
+    select, input[type="text"]{
+      width:100%; padding:10px 12px; border-radius:12px; border:1px solid #22314a; background:#0b1220; color:#e8eef7;
+      outline:none;
+    }
+    .grid{display:grid; gap:12px;}
+    @media(min-width:720px){ .grid{grid-template-columns:1fr 1fr;} }
+    .row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border-radius:12px; border:1px solid #22314a; background:#0b1220; margin:8px 0;}
+    .row small{opacity:.75;}
+    .pill{font-size:12px; padding:6px 10px; border-radius:999px; background:#0b1220; border:1px solid #22314a;}
+    .muted{opacity:.8; font-size:13px; line-height:1.4}
+    .btn{width:100%; padding:10px 12px; border-radius:12px; border:1px solid #22314a; background:#111827; color:#e8eef7; cursor:pointer;}
+    .btn:active{transform:scale(.99)}
+    .ok{color:#7ee787}
+    .warn{color:#ffd479}
+  </style>
+</head>
+<body>
+<header>
+  <h1>Plan 1 Mes – Checklist (14 Feb → 14 Mar)</h1>
+</header>
+
+<div class="wrap">
+
+  <div class="card">
+    <div class="grid">
+      <div>
+        <label>Semana</label>
+        <select id="week"></select>
+      </div>
+      <div>
+        <label>Día</label>
+        <select id="day"></select>
+      </div>
+    </div>
+    <div style="margin-top:10px" class="muted">
+      Ventana de comida: <span class="pill">12:00–20:00</span>
+      <span style="margin-left:8px" class="pill">Keto moderado</span>
+      <span style="margin-left:8px" class="pill">Sin impacto rodillas</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+      <div>
+        <strong>Entreno del día:</strong> <span id="workoutTag" class="pill"></span>
+      </div>
+      <button class="btn" id="resetDay" style="max-width:240px;">Reiniciar checks del día</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <strong>Checklist por hora</strong>
+    <div id="tasks"></div>
+  </div>
+
+  <div class="card">
+    <strong>Comidas (elige 1 opción por bloque)</strong>
+    <div class="muted" id="meals"></div>
+  </div>
+
+  <div class="card">
+    <strong>Ejercicio detallado</strong>
+    <div class="muted" id="workout"></div>
+  </div>
+
+  <div class="card">
+    <strong>Notas del día</strong>
+    <input id="notes" type="text" placeholder="Ej: presión 138/88, energía buena, rodillas ok…" />
+    <div style="margin-top:10px" class="muted">
+      Estado: <span id="status" class="warn">Guardando localmente…</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ====== Data ======
+  const weeks = [
+    { key:"w1", label:"Semana 1 (14–20 Feb 2026)", start:"2026-02-14" },
+    { key:"w2", label:"Semana 2 (21–27 Feb 2026)", start:"2026-02-21" },
+    { key:"w3", label:"Semana 3 (28 Feb–06 Mar 2026)", start:"2026-02-28" },
+    { key:"w4", label:"Semana 4 (07–13 Mar 2026)", start:"2026-03-07" },
+    { key:"w5", label:"Cierre (14 Mar 2026)", start:"2026-03-14" },
+  ];
+
+  // Semana: Vie–Jue (como tu formato)
+  const weekDays = ["Vie","Sáb","Dom","Lun","Mar","Mié","Jue"];
+
+  const baseTasks = [
+    { time:"07:30", text:"Agua con pizca de sal + Presión arterial" },
+    { time:"08:00", text:"Respiración 5’ (4/6) + Movilidad 5’" },
+    { time:"10:30", text:"Pausa activa 5’ + agua/café/té sin azúcar" },
+    { time:"12:00", text:"Comida 1 (keto) – elige 1 opción" },
+    { time:"13:00", text:"Bici suave 10–15’" },
+    { time:"16:00", text:"Merienda keto – elige 1 opción" },
+    { time:"17:00", text:"Entreno del día" },
+    { time:"19:30", text:"Cena keto + Presión arterial" },
+    { time:"20:00", text:"Cierre de comida (empieza ayuno)" },
+    { time:"21:00", text:"Respiración 5’ + estiramientos" },
+    { time:"22:30", text:"Dormir ≥ 7 horas" },
+  ];
+
+  const meals = {
+    lunch: [
+      "Huevos (3–4) con espinaca + ½ aguacate",
+      "Pollo (≈200g) + ensalada verde + aceite de oliva",
+      "Atún en aceite de oliva + tomate + aceitunas",
+      "Carne magra (≈200g) + calabacín",
+      "Omelette (3 huevos) + queso (30–40g) + champiñones"
+    ],
+    snack: [
+      "Yogur griego natural (≈200g) + 10–15 nueces",
+      "Queso (50–70g) + aceitunas",
+      "2 huevos duros",
+      "Sardinas con limón",
+      "Batido proteína con agua (opcional, sin azúcar)"
+    ],
+    dinner: [
+      "Pescado (≈200g) + brócoli/coliflor + aceite de oliva",
+      "Pollo al horno (≈200g) + ensalada",
+      "Carne magra (≈200g) + verduras salteadas",
+      "Hamburguesa casera sin pan + ensalada",
+      "Tortilla 2–3 huevos + verduras"
+    ]
+  };
+
+  function workoutTypeFor(dateStr){
+    // pattern: L/M/V fuerza; M/J/S cardio; Dom descanso
+    // We'll map by weekday (0 Sun..6 Sat)
+    const d = new Date(dateStr+"T12:00:00");
+    const wd = d.getDay();
+    if(wd===0) return "DESCANSO";
+    if(wd===1 || wd===3 || wd===5) return "FUERZA";
+    return "CARDIO";
+  }
+
+  const workoutDetails = {
+    "FUERZA": [
+      "Bici spinning 10’: 1’ suave + 30’’ un poco más rápido × 6",
+      "Saco de box 5’: golpes controlados, SIN saltos",
+      "Fuerza (2 rondas):",
+      "• Curl bíceps sentado (2 kg) × 12",
+      "• Elevaciones laterales hombro × 12",
+      "• Remo inclinado con pesas × 12",
+      "• Plancha contra pared 30–40 seg",
+      "Estirar 5’"
+    ],
+    "CARDIO": [
+      "Bici spinning 15–20’ continua (resistencia baja)",
+      "Estirar 5’"
+    ],
+    "DESCANSO": [
+      "Caminata suave 10–15’ (solo si no hay dolor)",
+      "Movilidad + estiramientos"
+    ]
+  };
+
+  // ====== UI / State ======
+  const $week = document.getElementById("week");
+  const $day = document.getElementById("day");
+  const $tasks = document.getElementById("tasks");
+  const $meals = document.getElementById("meals");
+  const $workout = document.getElementById("workout");
+  const $workoutTag = document.getElementById("workoutTag");
+  const $notes = document.getElementById("notes");
+  const $status = document.getElementById("status");
+  const $resetDay = document.getElementById("resetDay");
+
+  const key = (weekKey, dayIdx) => `plan_v1_${weekKey}_d${dayIdx}`;
+
+  function setStatus(ok=true){
+    $status.textContent = ok ? "Guardado ✔" : "Guardando…";
+    $status.className = ok ? "ok" : "warn";
+    if(ok) setTimeout(()=>{ $status.textContent=""; }, 1200);
+  }
+
+  function buildWeekOptions(){
+    weeks.forEach(w=>{
+      const opt=document.createElement("option");
+      opt.value=w.key; opt.textContent=w.label;
+      $week.appendChild(opt);
+    });
+  }
+
+  function buildDayOptions(weekKey){
+    $day.innerHTML="";
+    const w = weeks.find(x=>x.key===weekKey);
+    const start = new Date(w.start+"T12:00:00");
+    const count = (weekKey==="w5") ? 1 : 7;
+    for(let i=0;i<count;i++){
+      const d = new Date(start);
+      d.setDate(start.getDate()+i);
+      const iso = d.toISOString().slice(0,10);
+      const opt=document.createElement("option");
+      opt.value=i;
+      opt.textContent = `${weekDays[i]} ${iso}`;
+      opt.dataset.date = iso;
+      $day.appendChild(opt);
+    }
+  }
+
+  function render(){
+    const weekKey=$week.value;
+    const dayIdx=Number($day.value);
+    const dateIso=$day.options[$day.selectedIndex].dataset.date;
+
+    // workout
+    const wt = workoutTypeFor(dateIso);
+    $workoutTag.textContent = wt;
+    $workout.innerHTML = "<ul>"+ workoutDetails[wt].map(x=>`<li>${x}</li>`).join("") +"</ul>";
+
+    // meals
+    $meals.innerHTML = `
+      <div class="card" style="margin:10px 0; padding:10px;">
+        <b>12:00 – Comida 1</b><ol>${meals.lunch.map(x=>`<li>${x}</li>`).join("")}</ol>
+        <b>16:00 – Merienda</b><ol>${meals.snack.map(x=>`<li>${x}</li>`).join("")}</ol>
+        <b>19:30 – Cena</b><ol>${meals.dinner.map(x=>`<li>${x}</li>`).join("")}</ol>
+      </div>
+    `;
+
+    // tasks with saved checks
+    const state = JSON.parse(localStorage.getItem(key(weekKey, dayIdx)) || "{}");
+    $tasks.innerHTML="";
+    baseTasks.forEach((t, i)=>{
+      const row=document.createElement("div");
+      row.className="row";
+      row.innerHTML=`
+        <div>
+          <div><strong>${t.time}</strong> <small>${t.text}</small></div>
+        </div>
+        <div>
+          <input type="checkbox" ${state["t"+i] ? "checked":""} />
+        </div>
+      `;
+      row.querySelector("input").addEventListener("change", (e)=>{
+        state["t"+i]=e.target.checked;
+        localStorage.setItem(key(weekKey, dayIdx), JSON.stringify(state));
+        setStatus(true);
+      });
+      $tasks.appendChild(row);
+    });
+
+    // notes
+    $notes.value = state.notes || "";
+    $notes.oninput = ()=>{
+      state.notes=$notes.value;
+      localStorage.setItem(key(weekKey, dayIdx), JSON.stringify(state));
+      setStatus(false);
+      clearTimeout(window.__st);
+      window.__st=setTimeout(()=>setStatus(true), 400);
+    };
+  }
+
+  $week.addEventListener("change", ()=>{
+    buildDayOptions($week.value);
+    localStorage.setItem("plan_last_week", $week.value);
+    localStorage.setItem("plan_last_day", "0");
+    render();
+  });
+
+  $day.addEventListener("change", ()=>{
+    localStorage.setItem("plan_last_day", $day.value);
+    render();
+  });
+
+  $resetDay.addEventListener("click", ()=>{
+    const weekKey=$week.value;
+    const dayIdx=Number($day.value);
+    localStorage.removeItem(key(weekKey, dayIdx));
+    render();
+  });
+
+  // init
+  buildWeekOptions();
+  const lastWeek = localStorage.getItem("plan_last_week") || "w1";
+  $week.value = lastWeek;
+  buildDayOptions(lastWeek);
+  const lastDay = localStorage.getItem("plan_last_day") || "0";
+  $day.value = lastDay;
+  render();
+</script>
+</body>
+</html>
